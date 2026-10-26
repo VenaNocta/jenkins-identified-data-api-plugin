@@ -15,6 +15,8 @@
  */
 package org.jenkinsci.plugins.identifieddata.api;
 
+import java.io.Serializable;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,6 +27,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.Map.Entry;
 
+import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.stapler.StaplerRequest2;
 
 import hudson.Util;
@@ -169,5 +172,60 @@ public class IdentifierUtils {
 				model.add(0, new Option(String.format("%s » ???", selectedId), selectedId));
 		}
 		return model;
+	}
+
+	// --- name related helpers
+
+	public static boolean isComment(final String name) {
+		return name == null ? false : name.charAt(0) == '#';
+	}
+
+	public static String unComment(String name) {
+		if (name == null)
+			return null;
+		name = StringUtils.stripStart(name, "#");
+		name = StringUtils.stripStart(name, null);
+		return name;
+	}
+
+	public static final class NameComparator<T> implements Comparator<T>, Serializable {
+
+		private static final long serialVersionUID = 1L;
+
+		private final Function<T, String> getName;
+
+		public NameComparator(final Function<T, String> getName) {
+			this.getName = getName;
+		}
+
+		@Override
+		public int compare(final T o1, final T o2) {
+			if (o1 == null)
+				return o2 == null ? 0 : -1;
+			if (o2 == null)
+				return 1;
+			return String.CASE_INSENSITIVE_ORDER.compare(this.getName.apply(o1), this.getName.apply(o2));
+		}
+	}
+
+	public static class NameComparatorWithComments<T> implements Comparator<T>, Serializable {
+
+		private static final long serialVersionUID = 1L;
+
+		private final Function<T, String> getName;
+
+		public NameComparatorWithComments(final Function<T, String> getName) {
+			this.getName = getName;
+		}
+
+		@Override
+		public int compare(final T o1, final T o2) {
+			if (o1 == null)
+				return o2 == null ? 0 : -1;
+			if (o2 == null)
+				return 1;
+			return String.CASE_INSENSITIVE_ORDER.compare( //
+					unComment(this.getName.apply(o1)), unComment(this.getName.apply(o2)));
+		}
 	}
 }

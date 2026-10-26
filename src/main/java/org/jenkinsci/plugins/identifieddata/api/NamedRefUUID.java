@@ -15,13 +15,11 @@
  */
 package org.jenkinsci.plugins.identifieddata.api;
 
-import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Comparator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
-import org.apache.commons.lang3.StringUtils;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.AncestorInPath;
@@ -41,8 +39,10 @@ public class NamedRefUUID extends RefUUID {
 	public static final String REGEX_NAME = "[a-zA-Z0-9_\\.\\-<>#]+";
 	public static final String REGEX_NAME_OR_COMMENT = "^(?:[a-zA-Z0-9_.\\-<>]+|#[a-zA-Z0-9_.\\-<> ]+)$";
 
-	public static final Comparator<NamedRefUUID> COMPARE_BY_NAME = new NameComparator();
-	public static final Comparator<NamedRefUUID> COMPARE_BY_NAME_WITH_COMMENTS = new NameComparatorWithComments();
+	public static final Comparator<NamedRefUUID> COMPARE_BY_NAME = //
+			new IdentifierUtils.NameComparator<NamedRefUUID>(NamedRefUUID::getName);
+	public static final Comparator<NamedRefUUID> COMPARE_BY_NAME_WITH_COMMENTS = //
+			new IdentifierUtils.NameComparatorWithComments<NamedRefUUID>(NamedRefUUID::getName);
 
 	protected boolean readonly = false;
 	protected String name;
@@ -119,21 +119,9 @@ public class NamedRefUUID extends RefUUID {
 		};
 	}
 
-	public static boolean isComment(final String name) {
-		return name == null ? false : name.charAt(0) == '#';
-	}
-
-	public static String unComment(String name) {
-		if (name == null)
-			return null;
-		name = StringUtils.stripStart(name, "#");
-		name = StringUtils.stripStart(name, null);
-		return name;
-	}
-
 	public static boolean noComment(final NamedRefUUID ref) {
 		final String name = ref.getName();
-		return name == null ? false : !isComment(name);
+		return name == null ? false : !IdentifierUtils.isComment(name);
 	}
 
 	public static abstract class Descriptor extends RefUUID.Descriptor {
@@ -147,39 +135,11 @@ public class NamedRefUUID extends RefUUID {
 		public FormValidation doCheckName(@AncestorInPath Item item, @QueryParameter String value) {
 			if ((value = Util.fixEmptyAndTrim(value)) == null)
 				return FormValidation.error("Name is required");
-			if (!allowCommentAsName() && isComment(value))
+			if (!allowCommentAsName() && IdentifierUtils.isComment(value))
 				return FormValidation.error("Comments are not allowed as Names!");
 			if (!value.matches(NamedRefUUID.REGEX_NAME_OR_COMMENT))
 				return FormValidation.error("Invalid characters");
 			return FormValidation.ok();
-		}
-	}
-
-	public static class NameComparator implements Comparator<NamedRefUUID>, Serializable {
-
-		private static final long serialVersionUID = 1L;
-
-		@Override
-		public int compare(final NamedRefUUID o1, final NamedRefUUID o2) {
-			if (o1 == null)
-				return o2 == null ? 0 : -1;
-			if (o2 == null)
-				return 1;
-			return String.CASE_INSENSITIVE_ORDER.compare(o1.name, o2.name);
-		}
-	}
-
-	public static class NameComparatorWithComments implements Comparator<NamedRefUUID>, Serializable {
-
-		private static final long serialVersionUID = 1L;
-
-		@Override
-		public int compare(final NamedRefUUID o1, final NamedRefUUID o2) {
-			if (o1 == null)
-				return o2 == null ? 0 : -1;
-			if (o2 == null)
-				return 1;
-			return String.CASE_INSENSITIVE_ORDER.compare(unComment(o1.name), unComment(o2.name));
 		}
 	}
 }
